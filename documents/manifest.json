@@ -1,0 +1,7 @@
+{
+  "meetings.md": "Markdown notes from a series of project team meetings. Each meeting has sections for attendees, agenda, discussion, decisions, and action items. Some meetings include explicit decisions; others have decisions implied within the discussion.",
+  "sales-q1.csv": "Quarterly sales data in CSV format with columns: date, region, product, units_sold, unit_price, currency, sales_rep, status. The data contains some inconsistencies in formatting and a few missing values that may require careful handling.",
+  "emails.txt": "A plain-text email thread between team members discussing a discrepancy in reported financial figures. Messages are separated by '---' delimiters and include standard email headers (From, To, Date, Subject).",
+  "config.json": "Production application configuration in JSON format. Contains nested settings for application metadata, server, database, cache, payments, monitoring, and integrations. Includes feature flags that affect runtime behavior.",
+  "server-log.txt": "Server log file with timestamped entries at INFO, WARN, and ERROR levels. Some entries span multiple lines (stack traces). Contains operational events, performance warnings, and errors over a multi-day window."
+}

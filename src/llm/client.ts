@@ -45,8 +45,10 @@ const CORRECTIVE_MESSAGE =
   "Your previous response was not valid JSON. Respond only with a valid JSON object matching the required schema. Do not include markdown, code fences, or any text outside the JSON object.";
 
 function extractText(response: SDKResponse): string {
-  const block = response.content.find((b) => b.type === "text");
-  if (!block || block.type !== "text") {
+  const block = response.content.find(
+    (b): b is { type: "text"; text: string } => b.type === "text"
+  );
+  if (!block) {
     throw new LLMError("No text block in LLM response", false);
   }
   return block.text;

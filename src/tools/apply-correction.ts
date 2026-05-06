@@ -20,7 +20,7 @@ export function createApplyCorrectionTool(
         affects?: string[];
       };
       const correction = appendCorrection(
-        { description, affects, session_id: sessionId },
+        { description, session_id: sessionId, ...(affects !== undefined && { affects }) },
         correctionsFile
       );
       return `Correction recorded with ID: ${correction.id}`;

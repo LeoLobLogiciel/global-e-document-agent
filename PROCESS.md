@@ -214,6 +214,41 @@ and the renderEvent function. The agent loop is heavily tested (14 tests).
 The render logic is straightforward switch + chalk calls. Manual end-to-end 
 verification (the sample runs in docs/sample-runs/) confirms behavior. 
 Adding CLI tests would be coverage theater.
+
+### Decision: Single composition root in main.ts
+
+**Context:** All construction (SDK instantiation, client wrapping, tool 
+registration, prompt building) happens in main.ts. No globals, no 
+singletons, no service locators.
+
+**Alternatives considered:** Hidden global instances; per-module 
+initialization with module-level state; dependency injection container.
+
+**Trade-off accepted:** A small amount of "wiring code" in main.ts in 
+exchange for explicit dependency flow. Reading main.ts gives a complete 
+mental model of how the system is assembled. Easy to swap any layer 
+(different SDK, different storage backend) by changing only main.ts.
+
+### Phase 6 — End-to-end verification complete
+
+**Outcome:** All three sample questions from the assignment work 
+correctly: single-document, cross-document, and analytical cross-document. 
+The correction mechanism works end-to-end including persistence across 
+sessions. Identified one limitation (LLM arithmetic in complex queries) 
+documented separately.
+
+**What was tested:**
+- Three sample questions with full trace and citations
+- apply_correction round-trip (record, persist, read in new session)
+- Cross-session correction usage (agent applies corrections from 
+  previous session in new analysis)
+- Slash commands (/exit, /clear, /corrections, /help)
+- Configuration validation (missing API key produces clear error)
+
+**Test artifacts:** docs/sample-runs/01-06 (six captured interactions 
+demonstrating different aspects of agent behavior).
+
+
 ---
 
 ## Phase 7 — Polish

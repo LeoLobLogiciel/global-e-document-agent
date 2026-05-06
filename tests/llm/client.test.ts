@@ -24,6 +24,12 @@ function statusError(status: number): Error {
   return Object.assign(new Error(`HTTP ${status}`), { status });
 }
 
+function timeoutError(): Error {
+  return Object.assign(new Error("Connection timed out"), {
+    name: "APIConnectionTimeoutError",
+  });
+}
+
 function mockSDK(responses: Array<SDKResponse | Error>): SDKLike {
   let i = 0;
   return {
@@ -107,6 +113,13 @@ describe("createLLMClient / call", () => {
   it("throws LLMError on unexpected non-HTTP errors", async () => {
     const sdk = mockSDK([new Error("network failure")]);
     const client = createLLMClient(sdk, { model: "m" }, noDelay);
+    await expect(client.call(SYSTEM, MESSAGES)).rejects.toThrow(LLMError);
+  });
+
+  it("throws LLMError with clear message on timeout", async () => {
+    const sdk = mockSDK([timeoutError()]);
+    const client = createLLMClient(sdk, { model: "m", timeoutMs: 60000 }, noDelay);
+    await expect(client.call(SYSTEM, MESSAGES)).rejects.toThrow(/timed out after 60s/);
     await expect(client.call(SYSTEM, MESSAGES)).rejects.toThrow(LLMError);
   });
 

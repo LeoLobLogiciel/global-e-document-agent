@@ -14,10 +14,12 @@ type ContentBlock = { type: "text"; text: string } | { type: string };
 
 type SDKResponse = { content: ContentBlock[] };
 
+type RequestOptions = { timeout?: number };
+
 // Minimal structural interface — the real Anthropic client satisfies this.
 export type SDKLike = {
   messages: {
-    create: (params: CreateParams) => Promise<SDKResponse>;
+    create: (params: CreateParams, options?: RequestOptions) => Promise<SDKResponse>;
   };
 };
 
@@ -34,6 +36,7 @@ export class LLMError extends Error {
 export type LLMClientConfig = {
   model: string;
   maxTokens?: number;
+  timeoutMs?: number;
 };
 
 const MAX_429_RETRIES = 3;
@@ -57,6 +60,15 @@ function tryParseJSON(text: string): { ok: true; value: unknown } | { ok: false 
   }
 }
 
+function isTimeoutError(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "name" in err &&
+    (err as Record<string, unknown>)["name"] === "APIConnectionTimeoutError"
+  );
+}
+
 function isStatusError(err: unknown): err is { status: number; message: string } {
   return (
     typeof err === "object" &&
@@ -72,15 +84,13 @@ export function createLLMClient(
   delay: (ms: number) => Promise<void> = (ms) =>
     new Promise((r) => setTimeout(r, ms))
 ) {
-  const { model, maxTokens = 4096 } = config;
+  const { model, maxTokens = 4096, timeoutMs = 60000 } = config;
 
   async function callSDK(systemPrompt: string, messages: Message[]): Promise<string> {
-    const response = await sdk.messages.create({
-      model,
-      max_tokens: maxTokens,
-      system: systemPrompt,
-      messages,
-    });
+    const response = await sdk.messages.create(
+      { model, max_tokens: maxTokens, system: systemPrompt, messages },
+      { timeout: timeoutMs }
+    );
     return extractText(response);
   }
 
@@ -92,6 +102,9 @@ export function createLLMClient(
       try {
         return await callSDK(systemPrompt, messages);
       } catch (err) {
+        if (isTimeoutError(err)) {
+          throw new LLMError(`LLM call timed out after ${timeoutMs / 1000}s`, false);
+        }
         if (isStatusError(err)) {
           if (err.status === 429) {
             if (attempt < MAX_429_RETRIES) {

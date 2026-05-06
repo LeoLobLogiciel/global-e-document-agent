@@ -9,7 +9,7 @@
   "scripts": {
     "start": "tsx src/main.ts",
     "test": "vitest run --exclude 'tests/integration/**'",
-    "test:integration": "vitest run tests/integration"
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",

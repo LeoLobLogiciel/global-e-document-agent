@@ -253,7 +253,10 @@ demonstrating different aspects of agent behavior).
 
 ## Phase 7 — Polish
 
-<!-- Entries added as work proceeds -->
+### Decision: Actionable error messages in LLM client instead of technical dumps
+**Context:** Initial error messages exposed raw SDK internals (e.g. "LLM API error 401: ..."). A user running the CLI would see these and have no idea what to do. The CLI renders them directly via the `error` AgentEvent — there is no error-handling layer between the client and the screen.
+**Alternatives considered:** Generic fallback message for all errors (simpler, but loses the signal); expose raw SDK message only (already the status quo, already bad); structured error codes for programmatic handling (overkill for a CLI).
+**Trade-off accepted:** Each HTTP status class and network error code gets a distinct message with a concrete next step. The original SDK message is preserved as context for auth and model errors (where the raw detail is still useful) but dropped for transient errors (rate limit, 5xx) where the fix is always the same. No new tests written — testing that a switch produces a specific string would be pure coverage theater.
 
 ---
 

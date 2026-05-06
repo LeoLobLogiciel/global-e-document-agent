@@ -70,7 +70,20 @@ Each entry follows this loose structure:
 
 ## Phase 2 — Types and Contracts
 
-<!-- Entries added as work proceeds -->
+### Decision: Injectable file path in corrections store
+**Context:** The SPEC defines `corrections.json` as the persistence target but does not specify how tests should interact with it. Hardcoding the path would require tests to either write to the real file or mock `fs`.
+**Alternatives considered:** Mocking `node:fs` in tests (rejected: couples tests to implementation details and requires extra setup); using a fixed temp path per test run (fragile if tests run in parallel).
+**Trade-off accepted:** `readCorrections` and `appendCorrection` accept an optional `filePath` parameter defaulting to `"corrections.json"`. Tests pass a unique temp file path per test case. Production callers use the default. This is a minimal surface change that makes the store purely functional over its input.
+
+### Decision: `crypto.randomUUID()` instead of a `uuid` package
+**Context:** Each correction needs a unique ID. The `uuid` npm package is the conventional choice, but Node 20 ships `crypto.randomUUID()` as a stable built-in.
+**Alternatives considered:** `uuid` package (adds a dependency for something already in the runtime); `Date.now() + Math.random()` (not collision-safe enough for a persistent store).
+**Trade-off accepted:** None meaningful. `crypto.randomUUID()` produces RFC 4122 v4 UUIDs, is cryptographically random, and requires zero additional dependencies. Strictly better than the alternative given Node 20 as the minimum runtime.
+
+### Decision: `noUncheckedIndexedAccess` validated in practice
+**Context:** This flag was enabled in Phase 1 as a precaution against silent `undefined` from array indexing. Phase 2 tests confirmed it has real impact: every array access in test assertions required optional chaining (`all[0]?.description` rather than `all[0].description`).
+**Alternatives considered:** Disabling the flag to reduce verbosity (rejected: the verbosity is the point — it forces explicit handling of potentially-undefined values, which matters when indexing LLM-returned arrays).
+**Trade-off accepted:** Slightly more verbose test assertions. The flag stays enabled.
 
 ---
 

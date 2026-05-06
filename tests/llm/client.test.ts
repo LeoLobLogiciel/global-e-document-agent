@@ -92,9 +92,32 @@ describe("createLLMClient / call", () => {
 
   it("retries with corrective message on invalid JSON and succeeds", async () => {
     const payload = { type: "final_answer", answer: "recovered", sources: [] };
-    const sdk = mockSDK([rawResponse("not json at all"), textResponse(payload)]);
+
+    // Capture params from each SDK call to assert on the corrective message.
+    const capturedMessages: Array<Array<{ role: string; content: string }>> = [];
+    const sdk: SDKLike = {
+      messages: {
+        create: async (params) => {
+          capturedMessages.push(params.messages);
+          if (capturedMessages.length === 1) return rawResponse("not json at all");
+          return textResponse(payload);
+        },
+      },
+    };
+
     const client = createLLMClient(sdk, { model: "m" }, noDelay);
     const result = await client.call(SYSTEM, MESSAGES);
+
+    // 1. First attempt returned invalid JSON — two SDK calls were made.
+    expect(capturedMessages).toHaveLength(2);
+
+    // 2. Second call includes the bad response as assistant turn + corrective user turn.
+    const secondCallMessages = capturedMessages[1] ?? [];
+    expect(secondCallMessages.at(-2)).toMatchObject({ role: "assistant", content: "not json at all" });
+    expect(secondCallMessages.at(-1)).toMatchObject({ role: "user" });
+    expect(secondCallMessages.at(-1)?.content).toMatch(/valid JSON/);
+
+    // 3 & 4. Result is the parsed payload from the second attempt.
     expect(result).toEqual(payload);
   });
 

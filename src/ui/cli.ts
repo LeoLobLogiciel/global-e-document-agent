@@ -15,7 +15,7 @@ export type CLIOptions = {
   model: string;
 };
 
-const TOOL_RESULT_DISPLAY_CHARS = 200;
+const DISPLAY_CHARS = 200;
 
 function printBanner(model: string) {
   console.log(chalk.bold.cyan("\n╔══════════════════════════════════════╗"));
@@ -38,8 +38,9 @@ function renderEvent(event: AgentEvent, logStream: fs.WriteStream | null) {
 
   switch (event.type) {
     case "user_message":
-      line = chalk.bold(`\nYou: ${event.text}`);
-      break;
+      // Only logged to file — the readline prompt already shows the user's input.
+      logStream?.write(JSON.stringify(event) + "\n");
+      return;
     case "thinking":
       line = chalk.dim.italic(`  ↳ ${event.reasoning}`);
       break;
@@ -47,11 +48,10 @@ function renderEvent(event: AgentEvent, logStream: fs.WriteStream | null) {
       line = chalk.cyan(`  ▶ ${event.toolName}(${JSON.stringify(event.args)})`);
       break;
     case "tool_result": {
-      const preview =
-        event.result.length > TOOL_RESULT_DISPLAY_CHARS
-          ? event.result.slice(0, TOOL_RESULT_DISPLAY_CHARS) + chalk.dim(" …[truncated]")
-          : event.result;
-      line = chalk.green(`  ✓ ${preview}`);
+      const needsClip = event.result.length > DISPLAY_CHARS || event.truncated;
+      const preview = event.result.slice(0, DISPLAY_CHARS);
+      const suffix = needsClip ? chalk.dim(" …[see trace log for full output]") : "";
+      line = chalk.green(`  ✓ ${preview}${suffix}`);
       break;
     }
     case "final_answer": {

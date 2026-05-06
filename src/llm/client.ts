@@ -80,6 +80,37 @@ function isStatusError(err: unknown): err is { status: number; message: string }
   );
 }
 
+function isNetworkError(err: unknown): err is { code: string; message: string } {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    typeof (err as Record<string, unknown>)["code"] === "string"
+  );
+}
+
+function statusErrorMessage(status: number, original: string): string {
+  if (status === 401 || status === 403)
+    return `Authentication failed. Check that ANTHROPIC_API_KEY in your .env is set correctly and the key is active. Original error: ${original}`;
+  if (status === 404)
+    return `Model not found. Check that CLAUDE_MODEL in your .env refers to a valid Anthropic model. Original error: ${original}`;
+  return `LLM API error ${status}: ${original}`;
+}
+
+function networkErrorMessage(err: unknown): string {
+  if (isNetworkError(err)) {
+    const networkCodes = ["ENOTFOUND", "ECONNREFUSED", "ETIMEDOUT", "ECONNRESET", "ENETUNREACH"];
+    if (networkCodes.includes(err.code))
+      return `Network error: could not reach Anthropic API. Check your internet connection. (${err.code})`;
+  }
+  const e = err as Record<string, unknown>;
+  const name = typeof e["name"] === "string" ? e["name"] : "";
+  const msg = typeof e["message"] === "string" ? e["message"] : String(err);
+  if (name === "AbortError" || msg.toLowerCase().includes("aborted"))
+    return "Request timed out. The Anthropic API may be slow or unreachable. Check your internet connection and try again.";
+  return `Unexpected error calling LLM: ${msg}`;
+}
+
 export function createLLMClient(
   sdk: SDKLike,
   config: LLMClientConfig,
@@ -113,27 +144,34 @@ export function createLLMClient(
               await delay(1000 * 2 ** attempt);
               continue;
             }
-            throw new LLMError("Rate limit exceeded after retries", false);
+            throw new LLMError(
+              `Rate limit exceeded after ${MAX_429_RETRIES} retries. The API is currently throttling requests. Wait a moment and try again.`,
+              false
+            );
           }
           if (err.status >= 500) {
             await delay(2000);
             try {
               return await callSDK(systemPrompt, messages);
             } catch (retryErr) {
+              const code = isStatusError(retryErr) ? retryErr.status : err.status;
               throw new LLMError(
-                `LLM server error after retry: ${retryErr instanceof Error ? retryErr.message : String(retryErr)}`,
+                `Anthropic service is currently unavailable (status ${code}). Try again in a few moments. If the problem persists, check status.anthropic.com.`,
                 false
               );
             }
           }
-          throw new LLMError(`LLM API error ${err.status}: ${err.message}`, false);
+          throw new LLMError(statusErrorMessage(err.status, err.message), false);
         }
         if (err instanceof LLMError) throw err;
-        throw new LLMError(`Unexpected error calling LLM: ${String(err)}`, false);
+        throw new LLMError(networkErrorMessage(err), false);
       }
     }
     // Unreachable: loop always returns or throws before exhausting iterations.
-    throw new LLMError("Rate limit exceeded after retries", false);
+    throw new LLMError(
+      `Rate limit exceeded after ${MAX_429_RETRIES} retries. The API is currently throttling requests. Wait a moment and try again.`,
+      false
+    );
   }
 
   async function call(

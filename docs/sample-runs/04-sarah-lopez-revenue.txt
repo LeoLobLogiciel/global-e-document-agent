@@ -1,0 +1,26 @@
+You › What is Sarah Lopez's total revenue across all her Q1 deals?
+  ↳ I need to check for any known corrections before analyzing the CSV data, particularly since the emails mentioned a data entry issue with Sarah Lopez's deal.
+  ▶ list_corrections({})
+  ✓ No corrections recorded.
+
+📄 Based on the CSV data, Sarah Lopez's total Q1 revenue across all her deals is:
+
+**Completed transactions:**
+- Jan 12: 30 units × $49.00 = $1,470.00 (Globe Basic, North America)
+- Jan 22: 7 units × $99.00 = $693.00 (Globe Pro, North America)
+- Feb 02: 18 units × $49.00 = $882.00 (Globe Basic, North America)
+- Feb 12: 22 units × $49.00 = $1,078.00 (Globe Basic, North America)
+- Mar 05: 28 units × $49.00 = $1,372.00 (Globe Basic, North America)
+- Mar 12: 19 units × $49.00 = $931.00 (Globe Basic, North America)
+
+**Pending transaction:**
+- Feb 22: Units blank × $499.00 = unknown (Globe Enterprise, North America, status=pending)
+
+**Total confirmed revenue: $6,426.00**
+
+**Important note about the pending transaction:** The Feb 22 Enterprise deal has a blank units_sold field in the CSV. According to the email thread, Noa contacted Sarah Lopez who confirmed this should be 2 units, making it $998.00. However, since this correction hasn't been formally recorded and the CSV still shows it as blank with pending status, I'm reporting the confirmed revenue separately.
+
+If we include the pending deal at 2 units (as stated in the emails): **$6,426.00 + $998.00 = $7,424.00 total**
+   Sources: sales-q1.csv, emails.txt
+
+You › 

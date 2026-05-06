@@ -89,28 +89,228 @@ Each entry follows this loose structure:
 
 ## Phase 3 — Tools
 
-<!-- Entries added as work proceeds -->
+### Decision: Keep path traversal guard added by Claude Code in read_document
+**Context:** Claude Code added a `basename(filename) !== filename` check in `read_document` that was not in the SPEC. This guards against path traversal attacks (`../../../etc/passwd`).
+**Alternatives considered:** Remove the check (the LLM only uses filenames from the manifest, so the threat is theoretical in this context); keep it (defense in depth, costs only 3 lines).
+**Trade-off accepted:** Kept the guard. Worth noting: Claude Code made this design decision unilaterally despite CLAUDE.md instructing it to pause for confirmation on decisions outside the SPEC. Reinforced the pause requirement before continuing to Phase 4.
+
+### Decision: Synchronous fs operations in corrections store, no atomicity
+**Context:** The corrections store reads and writes a JSON file. In production this would need atomicity (write-via-rename), file locking for multi-process safety, and zod validation on read.
+**Alternatives considered:** Implement full robustness (atomic writes, locking, validation) — appropriate for production; implement minimum viable persistence — appropriate for single-user CLI.
+**Trade-off accepted:** Minimum viable persistence chosen. Single-user, single-process context makes the simpler approach correct here. Documented as future work for production use.
+
+### Process note: PR-style review of Claude Code output
+
+**Context:** Claude Code reported Phase 3 (4 tools + tests) complete in 3 minutes. This was suspiciously fast, raising the possibility of stub implementations or trivial tests.
+**Approach:** Paused before approving the phase. Requested full source of registry, read_document, apply_correction, and corrections store, plus the test output. Reviewed each file as if it were a pull request from a contributor: checked for real implementation vs stubs, meaningful test assertions vs tautologies, error handling, and unilateral design choices.
+**Outcome:** All code was real and well-implemented (45 tests passing). One unilateral design decision was caught (path traversal guard, see entry above). The review took ~10 minutes and would have taken much longer to debug if discovered later.
+**Trade-off accepted:** A small time investment in review per phase, in exchange for catching issues early and maintaining trust in the codebase.
 
 ---
 
 ## Phase 4 — LLM Client
 
-<!-- Entries added as work proceeds -->
+### Decision: One retry on 5xx without re-entering the 429 backoff loop
+**Context:** The LLM client handles 5xx errors with a single retry after 2s, 
+but if that retry also returns a 5xx or a 429, it's treated as a generic 
+error rather than re-entering the 429 backoff loop.
+**Alternatives considered:** Implement a unified retry loop that handles 
+any retryable error type with exponential backoff (more correct but more 
+complex); accept the current behavior as "good enough" for the rare edge 
+case of cascading errors.
+**Trade-off accepted:** Current implementation. The probability of a 5xx 
+followed by a 429 in two consecutive calls is low. Documented as a known 
+limitation; would refactor for production use.
 
+### Decision: 60-second timeout on LLM calls
+**Context:** The Anthropic SDK defaults to a 10-minute timeout, which 
+is excessive for an interactive agent. A user waiting 10 minutes for 
+a response would assume the system has hung.
+**Alternatives considered:** Use the SDK default (10 min — too long); 
+shorter timeout like 30s (might fail on legitimately slow responses); 
+no timeout (worst, can hang indefinitely).
+**Trade-off accepted:** 60 seconds. Long enough for any reasonable LLM 
+response (responses in this agent are short JSON, typically < 5s), 
+short enough to fail fast when something is wrong. Configurable via 
+LLMClientConfig.timeoutMs for tests or special cases.
 ---
 
 ## Phase 5 — Agent Loop
 
-<!-- Entries added as work proceeds -->
+### Decision: Iterated on system prompt after first version had structural issues
 
+**Context:** Claude Code's first version of buildSystemPrompt had three issues: 
+examples showed multiple JSONs as if they were a single response (would break 
+the contract), no example for the correction workflow, and no example for 
+"insufficient data" scenarios.
+
+**Approach:** Caught the issues during review (instinct flagged them as 
+"feels off" before I could articulate why). Asked Claude Code for a 
+specific list of changes rather than a vague "make it better."
+
+**Outcome:** Second version explicitly marks each turn ("Your first turn", 
+"After seeing the tool result"), includes three examples covering the main 
+patterns (single-doc, correction, insufficient data), and ties operating 
+principles to demonstrated behavior.
+
+**Trade-off accepted:** ~10 minutes of iteration. Worth it because the system 
+prompt is the agent's "brain" — bugs here cause behavioral problems that 
+are harder to debug than code bugs.
 ---
 
 ## Phase 6 — End-to-End
 
-<!-- Entries added as work proceeds -->
+### Phase 6 — Observation: LLMs are unreliable at arithmetic
 
+**Context:** During end-to-end testing, asked the agent to compute Sarah 
+Lopez's total Q1 revenue. The agent correctly retrieved all 7 deals, 
+correctly computed each line item (units × price), and correctly applied 
+a previously-recorded correction. However, the final sum was incorrect 
+($5,416 reported vs $7,424 actual).
+
+**Root cause:** This is not a bug in the agent code or the dataset. LLMs 
+generate tokens that look like sums but do not actually perform arithmetic 
+operations. Sums of multiple numbers are particularly unreliable.
+
+**What I did NOT do:** add a calculator tool or code-execution tool. These 
+would solve the problem but expand scope beyond what the assignment 
+requires.
+
+**Documented as:** known limitation, mentioned in README under "Limitations" 
+and "Future work" sections. Production agents handling numeric workloads 
+should delegate arithmetic to a deterministic tool.
+
+### Phase 6 — Verified: LLM arithmetic is task-dependent
+
+**Observation:** Tested the same arithmetic operation in two contexts.
+- In a complex query (retrieve + reason + correct + format + sum), 
+  the agent gave wrong total: $5,416 vs correct $7,424.
+- In an isolated query ("calculate this sum"), the agent gave correct 
+  $7,424 and proactively corrected its previous error.
+
+**Conclusion:** Sonnet 4.5 can perform arithmetic reliably when focused 
+on it as the sole task. Accuracy degrades when arithmetic is one of 
+many simultaneous operations the model must orchestrate.
+
+**Implication for production:** Delegate critical arithmetic to a 
+deterministic tool. For descriptive output where small inaccuracies 
+are tolerable, inline computation is acceptable.
+
+**Decision for this exercise:** Documented as known limitation. Did not 
+add a calculator tool to keep scope focused on agent loop, tools, and 
+correction memory.
+
+### Decision: No automated tests for CLI rendering
+
+**Context:** The CLI layer (src/ui/cli.ts) has no unit tests, while every 
+other layer does.
+
+**Alternatives considered:** Mock readline + capture stdout assertions (high 
+complexity, low value); snapshot tests of rendered output (brittle to chalk 
+version changes).
+
+**Trade-off accepted:** The CLI is thin orchestration over the agent loop 
+and the renderEvent function. The agent loop is heavily tested (14 tests). 
+The render logic is straightforward switch + chalk calls. Manual end-to-end 
+verification (the sample runs in docs/sample-runs/) confirms behavior. 
+Adding CLI tests would be coverage theater.
 ---
 
 ## Phase 7 — Polish
 
 <!-- Entries added as work proceeds -->
+
+---
+
+## README notes (raw, processed in Phase 7)
+
+This is a scratch list of things that should appear in the final README, captured during development to avoid forgetting them. Not structured prose — just bullets to be polished later.
+
+### Setup / requirements
+- Node 20+ tested, also confirmed working on Node 24.13
+- Anthropic API key required (separate from claude.ai subscription)
+- Approximate cost to run: under $5 USD with normal usage
+
+### Design decisions worth highlighting
+- Custom agent loop, ~150 lines, deliberately framework-free
+- Strict JSON contract via zod, with one retry on malformed output
+- Four tools chosen over many specialized parsers (deliberate scope)
+- Corrections persist to disk, not just in memory
+- Generic agent over included dataset (not hardcoded for it)
+
+### Process / how AI was used
+- Cross-validated design with both Claude (web) and ChatGPT before coding
+- Treated Claude Code output as PR contributions: review before commit
+- Caught at least one unilateral decision (path traversal guard in read_document)
+- Used CLAUDE.md for persistent project context with Claude Code
+- Used SPEC.md as the source of truth that Claude Code consults
+
+### Trade-offs accepted (for "What I did not do" section)
+- No semantic search / embeddings (corpus too small to justify)
+- No streaming token-by-token rendering of final answer
+- No multi-process safety on corrections store
+- No TUI (CLI with chalk is sufficient for the demo)
+- No second UI built (architecture supports it, time spent elsewhere)
+
+### Things to verify before submitting
+- Clone in clean directory, run from scratch
+- Verify .env.example is present and .env is gitignored
+- Confirm npm test passes from clean install
+- Confirm npm start works without errors
+- Run the three sample questions and capture output
+
+### Things to mention as "future work"
+- Atomic writes for corrections store
+- Streaming responses
+- Eval suite separate from tests
+- Auto-generation of manifest descriptions
+
+### Evidence of AI tool supervision
+- Phase 3 review caught path traversal guard added without consultation
+- Tracked time per phase to validate Claude Code is not skipping work
+- Documented decisions in PROCESS.md as they happened, not retroactively
+
+### Limitations to mention
+- LLM arithmetic unreliability: agent correctly retrieves and reasons 
+  over data, but multi-number sums can be incorrect. Verified during 
+  testing. Mitigation in production: delegate arithmetic to a calculator 
+  or code-execution tool.
+
+  ## A real observation about LLM behavior
+
+During end-to-end testing, I asked the agent to compute Sarah Lopez's 
+total Q1 revenue across 7 deals. The agent correctly retrieved each deal, 
+correctly applied a previously-recorded correction, but reported an 
+incorrect final sum ($5,416 instead of $7,424).
+
+When asked to compute the same sum in isolation 
+("Calculate: 1470 + 693 + ..."), the agent gave the correct answer 
+and apologized for the previous error.
+
+This illustrates a property of LLM-based agents: arithmetic accuracy 
+degrades when the model is performing many simultaneous tasks 
+(retrieve + reason + apply correction + format + sum). For production 
+systems requiring numerical precision, the right pattern is to delegate 
+arithmetic to a deterministic tool (calculator or code execution) 
+rather than rely on the LLM's inline computation.
+
+I deliberately did not implement such a tool in this exercise because 
+it would expand scope beyond the assignment, but it would be the first 
+addition I'd make for a production version.
+
+## Honest assessment: where the agent stumbles
+
+During end-to-end testing I observed an arithmetic error: when asked 
+to compute total revenue across 7 line items, the agent retrieved each 
+correctly, applied a recorded correction correctly, but reported an 
+incorrect sum ($5,416 vs actual $7,424).
+
+Asked the same arithmetic in isolation, the agent computed it correctly 
+and apologized for the prior error. This points to a property of LLM 
+agents: arithmetic accuracy degrades during complex multi-task responses.
+
+For production, I would add a calculator tool the agent could delegate 
+to. I deliberately did not implement this here to keep scope focused 
+on the assignment's core: agent loop, tools, and correction memory.
+
+See `docs/sample-runs/06-arithmetic-limitation.txt` for the full trace.Te p

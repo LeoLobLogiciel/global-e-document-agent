@@ -1,0 +1,41 @@
+You › Calculate the sum of these numbers: 1470 + 693 + 882 + 1078 + 998 + 1372 + 931
+
+📄 The sum of those numbers is:
+
+1,470 + 693 + 882 + 1,078 + 998 + 1,372 + 931 = **7,424**
+
+I apologize for the arithmetic error in my previous response. Sarah Lopez's total Q1 revenue is **$7,424.00 USD**, not $5,416.00.
+
+You › 
+
+
+=== Background ===
+
+In a previous turn (sample 05), the agent computed Sarah Lopez's total 
+Q1 revenue and reported $5,416. Manual verification showed the correct 
+total was $7,424. The agent had correctly retrieved each deal and 
+correctly applied a recorded correction, but the final sum was wrong.
+
+To investigate, I asked the agent to compute the same sum in isolation:
+
+=== Interaction ===
+
+You › Calculate the sum of these numbers: 1470 + 693 + 882 + 1078 + 998 + 1372 + 931
+
+📄 The sum of those numbers is:
+
+1,470 + 693 + 882 + 1,078 + 998 + 1,372 + 931 = **7,424**
+
+I apologize for the arithmetic error in my previous response. Sarah Lopez's 
+total Q1 revenue is **$7,424.00 USD**, not $5,416.00.
+
+=== Observation ===
+
+When asked the arithmetic in isolation, the agent computed it correctly 
+and proactively corrected its previous error (visible in conversation 
+history). This suggests Sonnet 4.5's arithmetic accuracy degrades when 
+the operation is part of a complex multi-task response, not when it's 
+the sole focus.
+
+Implication for production: critical arithmetic should be delegated to 
+a deterministic tool. Documented as known limitation in README.

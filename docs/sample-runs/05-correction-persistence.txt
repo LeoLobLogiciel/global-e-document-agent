@@ -1,0 +1,41 @@
+You › What corrections do you have on record?
+  ↳ The user is asking what corrections are recorded. I need to call list_corrections to retrieve all known corrections.
+  ▶ list_corrections({})
+  ✓ [656e4719-3176-45d2-aed7-19ae4732d6d1] 2026-05-06T13:20:40.717Z
+  Feb 22 Sarah Lopez Enterprise deal: 2 units at $499 each, total $998 (CSV shows blank units_sold field)
+  Affects: sales-q1.csv
+
+📄 There is currently one correction on record:
+
+**Correction ID:** 656e4719-3176-45d2-aed7-19ae4732d6d1
+**Recorded:** 2026-05-06 at 13:20:40 UTC
+**Description:** Feb 22 Sarah Lopez Enterprise deal: 2 units at $499 each, total $998 (CSV shows blank units_sold field)
+**Affects:** sales-q1.csv
+
+This correction clarifies that the February 22 enterprise deal by Sarah Lopez involved 2 units sold at $499 each for a total of $998, even though the CSV file shows a blank units_sold field for that transaction.
+
+You › What is Sarah Lopez's total revenue across all her Q1 deals?
+  ↳ I need to read the sales-q1.csv file to find all of Sarah Lopez's Q1 deals and calculate her total revenue. I'll need to apply the known correction about her Feb 22 Enterprise deal.
+  ▶ read_document({"filename":"sales-q1.csv"})
+  ✓ date,region,product,units_sold,unit_price,currency,sales_rep,status
+2026-01-05,North America,Globe Pro,12,99.00,USD,Mike Johnson,completed
+2026-01-05,Europe,Globe Pro,8,89.00,EUR,Anna Schmidt,complete …[see trace log for full output]
+
+📄 Sarah Lopez's total Q1 revenue across all her deals is **$5,416.00 USD**.
+
+Here's the breakdown of her deals:
+
+1. **Jan 12** - Globe Basic: 30 units × $49.00 = $1,470.00 (completed)
+2. **Jan 22** - Globe Pro: 7 units × $99.00 = $693.00 (completed)
+3. **Feb 02** - Globe Basic: 18 units × $49.00 = $882.00 (completed)
+4. **Feb 12** - Globe Basic: 22 units × $49.00 = $1,078.00 (completed)
+5. **Feb 22** - Globe Enterprise: 2 units × $499.00 = $998.00 (pending) *[Applied correction: CSV shows blank units_sold, but actual sale was 2 units]*
+6. **Mar 05** - Globe Basic: 28 units × $49.00 = $1,372.00 (completed)
+7. **Mar 12** - Globe Basic: 19 units × $49.00 = $931.00 (completed)
+
+**Total: $5,416.00**
+
+Note: I included the Feb 22 Enterprise deal based on the recorded correction that specifies 2 units were sold at $499 each for a total of $998, even though the CSV shows a blank units_sold field for that transaction.
+   Sources: sales-q1.csv
+
+You › 

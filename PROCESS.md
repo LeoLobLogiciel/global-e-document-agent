@@ -46,7 +46,25 @@ Each entry follows this loose structure:
 
 ## Phase 1 — Scaffolding
 
-<!-- Entries added as work proceeds -->
+### Decision: `"type": "module"` (ESM) in package.json
+**Context:** Node.js 20 has stable, first-class ESM support. The choice between CJS and ESM affects import syntax, interop with chalk v5, and vitest config.
+**Alternatives considered:** CommonJS (`"type": "commonjs"`) — avoids ESM edge cases but requires `.cjs` workarounds for ESM-only deps; hybrid (CJS source + ESM output) — unnecessary complexity.
+**Trade-off accepted:** A small number of CJS-only packages become harder to consume. In practice, all chosen deps (`@anthropic-ai/sdk`, `chalk` v5, `zod`, `dotenv`, `tsx`, `vitest`) are ESM-compatible. Chalk v5 is ESM-only, so this choice is effectively required to use it.
+
+### Decision: `"moduleResolution": "bundler"` in tsconfig
+**Context:** tsx uses esbuild internally, which behaves like a bundler (resolves imports without requiring explicit `.js` extensions). `"node16"` or `"nodenext"` would require `.js` extension on every relative import, which is noisy and unfamiliar for most TypeScript codebases.
+**Alternatives considered:** `"node16"` (correct for pure Node.js ESM, but requires extension-qualified imports); `"node"` (legacy, doesn't model ESM correctly).
+**Trade-off accepted:** If the project were ever built with `tsc` for distribution (not the plan — tsx is the runtime), the output might not match Node's module resolution exactly. Acceptable because `dist/` is never published.
+
+### Decision: `noUncheckedIndexedAccess: true` in tsconfig
+**Context:** Prevents silent `undefined` from array and object index access — a common source of runtime errors with LLM-returned data.
+**Alternatives considered:** Omit the flag (default strict mode does not include it). This would allow `arr[0]` without a defined-check, which is unsafe for API responses.
+**Trade-off accepted:** Slightly more verbose index access (requires explicit nullchecks). Worth it given that tool outputs and LLM responses are the primary data structures being indexed.
+
+### Decision: Pin to specific dep versions via `^` (caret), not `=` (exact)
+**Context:** The project has no lockfile committed yet. Using `^` allows patch and minor updates while keeping semver compatibility.
+**Alternatives considered:** Exact pins (brittle for a take-home, adds noise to diffs); `~` (tilde, patch-only — overly cautious).
+**Trade-off accepted:** Theoretically a minor bump could break something. Mitigated by the fact that `npm install` generates a lockfile that is committed, locking the tree from that point forward.
 
 ---
 

@@ -1,0 +1,12 @@
+node_modules/
+dist/
+
+# Environment — never commit real keys
+.env
+
+# Runtime artifacts
+agent-trace.log
+corrections.json
+
+# macOS
+.DS_Store
